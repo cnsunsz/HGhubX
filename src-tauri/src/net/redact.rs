@@ -31,7 +31,9 @@ pub fn heal_client(reason: &str) {
     let connectish = reason.contains("Connect")
         || reason.contains("timed out")
         || reason.contains("refused")
-        || reason.contains("dns");
+        || reason.contains("dns")
+        || reason.contains("InvalidContentType")
+        || reason.contains("corrupt message");
     if !is_proxy_error(reason) && !connectish {
         return;
     }

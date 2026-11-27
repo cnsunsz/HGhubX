@@ -38,7 +38,7 @@ pub(crate) fn eligible(target: &url::Url, error: &str) -> bool {
         && matches!(target.host(), Some(url::Host::Domain(_)))
         && matches!(
             crate::playback_log::error_kind(error),
-            "dns_error" | "timeout" | "transport_error"
+            "dns_error" | "timeout" | "transport_error" | "private_address_denied"
         )
 }
 
@@ -161,14 +161,15 @@ mod tests {
             "请求超时",
             "client error (Connect) ← operation timed out",
             "tls handshake eof",
+            "client error (Connect) ← received corrupt message of type InvalidContentType",
+            "禁止访问普通内网、回环或保留地址（仅放行 FakeIP 198.18.0.0/15）",
         ] {
-            assert!(eligible(&url, error));
+            assert!(eligible(&url, error), "{error}");
         }
         for error in [
             "HTTP 403 Forbidden",
             "HTTP 404 Not Found",
             "HTTP 503 Service Unavailable",
-            "禁止访问内网",
             "禁止 HTTPS 降级重定向",
         ] {
             assert!(!eligible(&url, error), "{error}");

@@ -187,7 +187,7 @@ pub(super) fn cached_client(cache: &ClientCache, key: &str, now: Instant) -> Opt
 
 /// 缓存按模式、主机和端口隔离；有效期内仅复用已经检查并固定地址的客户端。
 /// 到期后重新检查全部 DNS 答案，不使用旧连接绕过新的目标检查。
-pub(super) async fn client_for(raw: &str) -> Result<(url::Url, Arc<reqwest::Client>), String> {
+pub(crate) async fn client_for(raw: &str) -> Result<(url::Url, Arc<reqwest::Client>), String> {
     client_for_dns(raw, false).await
 }
 
@@ -203,11 +203,21 @@ pub(crate) fn proxy_active(target: &url::Url) -> bool {
     ProxyRoute::for_config(&crate::proxy::snapshot(), target).active
 }
 
+pub(crate) fn prefers_public_dns(host: &str) -> bool {
+    MEDIA_DNS_ROUTES.lock().ok().is_some_and(|routes| routes.prefers_public(host, Instant::now()))
+}
+
+pub(crate) fn mark_public_dns(host: &str, ok: bool) {
+    if let Ok(mut routes) = MEDIA_DNS_ROUTES.lock() {
+        if ok { routes.remember(host, Instant::now()); } else { routes.forget(host); }
+    }
+}
+
 pub(super) fn client_key(strict: bool, host: &str, port: u16, public_dns: bool, route: &ProxyRoute) -> String {
     format!("{strict}:{host}:{port}:{public_dns}:{}:{:x}:{}", route.active, route.fingerprint(), route.generation)
 }
 
-async fn client_for_dns(raw: &str, public_dns: bool) -> Result<(url::Url, Arc<reqwest::Client>), String> {
+pub(crate) async fn client_for_dns(raw: &str, public_dns: bool) -> Result<(url::Url, Arc<reqwest::Client>), String> {
     let strict = network_policy::strict_security();
     let target = network_policy::parse_target_with_mode(raw, strict)?;
     let host = target.host_str().ok_or("目标缺少主机名")?;
